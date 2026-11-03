@@ -166,6 +166,7 @@
       <div class="field">
         <label>Препарат</label>
         <select id="g-drug"></select>
+        <div id="g-info" style="margin-top:8px;font-size:13px;line-height:1.45;background:var(--bg);border-radius:12px;padding:10px 12px"></div>
       </div>
       <div class="field">
         <label>Форма выпуска</label>
@@ -194,7 +195,7 @@
         <div class="unit" style="margin-top:8px"><input id="g-sv" inputmode="decimal" value="200"><span>мл</span></div>
       </div>
       <div class="field">
-        <label>Время введения (по назначению)</label>
+        <label>Время введения <span style="font-weight:400">(можно оставить пустым, если в инструкции дана скорость)</span></label>
         <div class="row">
           <div class="unit"><input id="g-h" inputmode="decimal" placeholder="0"><span>ч</span></div>
           <div class="unit"><input id="g-m" inputmode="decimal" placeholder="0"><span>мин</span></div>
@@ -330,27 +331,45 @@
 
   // ---- препараты
   var DRUGS = [
-    {n:'Мексидол', f:[{t:'50 мг/мл, 2 мл',d:100,u:'мг',ml:2},{t:'50 мг/мл, 5 мл',d:250,u:'мг',ml:5}]},
-    {n:'Гептрал', f:[{t:'фл. 400 мг + 5 мл растворителя',d:400,u:'мг',ml:5}]},
-    {n:'Аспаркам', f:[{t:'амп. 10 мл',d:10,u:'мл',ml:10},{t:'амп. 5 мл',d:5,u:'мл',ml:5}]},
-    {n:'L-лизина эсцинат', f:[{t:'1 мг/мл, 5 мл',d:5,u:'мг',ml:5}]},
-    {n:'Цераксон', f:[{t:'500 мг / 4 мл',d:500,u:'мг',ml:4},{t:'1000 мг / 4 мл',d:1000,u:'мг',ml:4}]},
-    {n:'Дексаметазон', f:[{t:'4 мг / 1 мл',d:4,u:'мг',ml:1},{t:'8 мг / 2 мл',d:8,u:'мг',ml:2}]},
-    {n:'Тиоктовая кислота (Берлитион)', f:[{t:'300 ЕД (300 мг) / 12 мл',d:300,u:'мг',ml:12},{t:'600 ЕД (600 мг) / 24 мл',d:600,u:'мг',ml:24}]},
-    {n:'Магния сульфат 25%', f:[{t:'амп. 5 мл (1250 мг)',d:1250,u:'мг',ml:5},{t:'амп. 10 мл (2500 мг)',d:2500,u:'мг',ml:10}]},
-    {n:'Эуфиллин 2,4%', f:[{t:'амп. 5 мл (120 мг)',d:120,u:'мг',ml:5},{t:'амп. 10 мл (240 мг)',d:240,u:'мг',ml:10}]},
-    {n:'Вессел Дуэ Ф', f:[{t:'600 ЛЕ / 2 мл',d:600,u:'ЛЕ',ml:2}]}
+    {n:'Мексидол', f:[{t:'50 мг/мл, 2 мл',d:100,u:'мг',ml:2},{t:'50 мг/мл, 5 мл',d:250,u:'мг',ml:5}],
+     sol:100, info:'Капельно: развести в 100–150 мл NaCl 0,9% или глюкозы 5%. Струйно — медленно, не менее 5 мин. Макс. 1200 мг/сут. Скорость капель в инструкции не указана.'},
+    {n:'Гептрал', f:[{t:'фл. 400 мг + 5 мл растворителя',d:400,u:'мг',ml:5}],
+     sol:250, tmin:60, tmax:120, tdef:90, info:'Развести в 250 мл NaCl 0,9% или глюкозы 5%, вводить медленно в течение 1–2 ч. Не смешивать со щелочными растворами и растворами с кальцием.'},
+    {n:'Аспаркам', f:[{t:'амп. 10 мл',d:10,u:'мл',ml:10},{t:'амп. 5 мл',d:5,u:'мл',ml:5}],
+     sol:200, rate:[20,25], info:'10–20 мл препарата развести в 100–200 мл NaCl 0,9% или глюкозы 5%. Скорость 20–25 кап/мин.'},
+    {n:'L-лизина эсцинат', f:[{t:'1 мг/мл, 5 мл',d:5,u:'мг',ml:5}],
+     sol:100, info:'Строго в/в, капельно: развести в 50–100 мл NaCl 0,9%. Без разведения не применять. Обычно 5–10 мл/сут. Скорость в инструкции не указана.'},
+    {n:'Цераксон', f:[{t:'500 мг / 4 мл',d:500,u:'мг',ml:4},{t:'1000 мг / 4 мл',d:1000,u:'мг',ml:4}],
+     sol:100, rate:[40,60], info:'Капельно со скоростью 40–60 кап/мин. Совместим с изотоническими растворами и растворами декстрозы. Объём разведения в инструкции не указан — по назначению.'},
+    {n:'Дексаметазон', f:[{t:'4 мг / 1 мл',d:4,u:'мг',ml:1},{t:'8 мг / 2 мл',d:8,u:'мг',ml:2}],
+     sol:100, info:'Капельно — в NaCl 0,9% или глюкозе 5%. Объём и скорость в инструкции не указаны — по назначению. С другими препаратами не смешивать (с гепарином — осадок).'},
+    {n:'Тиоктовая кислота (Берлитион)', f:[{t:'300 ЕД (300 мг) / 12 мл',d:300,u:'мг',ml:12},{t:'600 ЕД (600 мг) / 24 мл',d:600,u:'мг',ml:24}],
+     sol:250, tmin:30, tdef:30, info:'1–2 ампулы развести в 250 мл ТОЛЬКО NaCl 0,9% (не глюкоза, не Рингер). Вводить не быстрее чем за 30 мин. Готовить перед введением и защищать флакон от света (фольгой).'},
+    {n:'Магния сульфат 25%', f:[{t:'амп. 5 мл (1250 мг)',d:1250,u:'мг',ml:5},{t:'амп. 10 мл (2500 мг)',d:2500,u:'мг',ml:10}],
+     sol:100, info:'Дозы и скорость зависят от показания (напр. при преэклампсии 1–2 г/ч), назначает врач. Для расчёта в мл/ч можно использовать вкладку «По дозе».'},
+    {n:'Эуфиллин 2,4%', f:[{t:'амп. 10 мл (240 мг)',d:240,u:'мг',ml:10},{t:'амп. 5 мл (120 мг)',d:120,u:'мг',ml:5}],
+     sol:150, rate:[30,50], info:'Капельно: 10–20 мл развести в 100–150 мл NaCl 0,9%, скорость 30–50 кап/мин. Подогреть до температуры тела. Не смешивать с глюкозой. Макс. разовая доза 250 мг.'},
+    {n:'Вессел Дуэ Ф', f:[{t:'600 ЛЕ / 2 мл',d:600,u:'ЛЕ',ml:2}],
+     sol:100, info:'По инструкции: 1 ампула в день в/м или в/в, 15–20 дней. Объём и скорость капельного введения в инструкции не указаны — по назначению врача.'}
   ];
-  var gUnit = 'мг';
+  var gUnit = 'мг', gDrug = DRUGS[0];
   DRUGS.forEach(function(d,i){ var o=document.createElement('option'); o.value=i; o.textContent=d.n; $('g-drug').appendChild(o); });
   function setForm(f, btn){
     document.querySelectorAll('#g-forms .chip').forEach(function(c){ c.classList.toggle('on', c===btn); });
     $('g-ad').value = f.d; $('g-aml').value = f.ml; gUnit = f.u; $('g-au').textContent = f.u;
     calcDrug();
   }
+  function setSol(v){
+    $('g-sv').value = v;
+    document.querySelectorAll('#g-sol .chip').forEach(function(x){ x.classList.toggle('on', x.dataset.v == String(v)); });
+  }
   function setDrug(i){
+    gDrug = DRUGS[i];
+    $('g-info').textContent = gDrug.info;
+    setSol(gDrug.sol);
+    $('g-h').value = ''; $('g-m').value = gDrug.tdef ? String(gDrug.tdef) : '';
     var box = $('g-forms'); box.innerHTML = '';
-    DRUGS[i].f.forEach(function(f,j){
+    gDrug.f.forEach(function(f,j){
       var b=document.createElement('button'); b.className='chip'; b.textContent=f.t;
       b.addEventListener('click', function(){ setForm(f,b); });
       box.appendChild(b); if(j===0) setForm(f,b);
@@ -358,26 +377,43 @@
   }
   $('g-drug').addEventListener('change', function(){ setDrug(+this.value); });
   document.querySelectorAll('#g-sol .chip').forEach(function(c){
-    c.addEventListener('click', function(){
-      document.querySelectorAll('#g-sol .chip').forEach(function(x){ x.classList.toggle('on', x===c); });
-      $('g-sv').value = c.dataset.v; calcDrug();
-    });
+    c.addEventListener('click', function(){ setSol(c.dataset.v); calcDrug(); });
   });
+  function warn(t){ return '<div class="err" style="margin-top:10px">⚠️ ' + t + '</div>'; }
   function calcDrug(){
     var out=$('g-out');
     var ad=num('g-ad'), aml=num('g-aml'), n=num('g-n'), sv=num('g-sv'), h=num('g-h'), m=num('g-m');
     var t=(isNaN(h)?0:h)*60+(isNaN(m)?0:m);
-    if(!(n>0) || !(aml>=0) || isNaN(aml)){ out.innerHTML=EMPTY; return; }
+    if(!(n>0) || isNaN(aml) || aml<0){ out.innerHTML=EMPTY; return; }
     var total = n*aml + (sv>0?sv:0);
     var dose = ad>0 ? ad*n : NaN;
     var name = $('g-drug').options[$('g-drug').selectedIndex].text;
     var head = '<div class="formula" style="margin:0 0 8px">' + name + ': ' + fmt(n,1) + ' амп.' + (isFinite(dose)&&gUnit!=='мл' ? ' = <b>' + fmt(dose,1) + ' ' + gUnit + '</b>' : '') + ' в ' + fmt(total,1) + ' мл</div>';
-    if(!(t>0)){ out.innerHTML = head + '<div class="empty">Укажите время введения</div>'; return; }
     if(!(total>0)){ out.innerHTML = EMPTY; return; }
     if(kBad()){ out.innerHTML = head + '<div class="err">Укажите капельную систему</div>'; return; }
+    var r = gDrug.rate;
+    if(!(t>0)){
+      if(r){
+        var tLong = total*k/r[0], tShort = total*k/r[1];
+        out.innerHTML = head +
+          '<div class="big">' + r[0] + '–' + r[1] + ' <small>кап/мин по инструкции</small></div>' +
+          '<div class="sub">' +
+            '<div><b>' + hm(tShort) + ' – ' + hm(tLong) + '</b><span>займёт капельница</span></div>' +
+            '<div><b>' + fmt(r[0]/4,0) + '–' + fmt(r[1]/4,0) + '</b><span>капель за 15 сек</span></div>' +
+            '<div><b>' + fmt(r[0]/k*60,0) + '–' + fmt(r[1]/k*60,0) + '</b><span>мл/ч (для инфузомата)</span></div>' +
+          '</div>';
+      } else {
+        out.innerHTML = head + '<div class="empty">Укажите время введения по назначению</div>';
+      }
+      return;
+    }
     var dpm = total*k/t;
-    out.innerHTML = head + ratePanel(dpm, total/t*60) +
+    var html = head + ratePanel(dpm, total/t*60) +
       '<div class="formula">' + fmt(total,1) + ' мл × ' + fmt(k,0) + ' кап/мл ÷ ' + fmt(t,0) + ' мин</div>';
+    if(r && (dpm < r[0]-0.5 || dpm > r[1]+0.5)) html += warn('По инструкции ' + r[0] + '–' + r[1] + ' кап/мин');
+    if(gDrug.tmin && t < gDrug.tmin) html += warn('По инструкции вводить не быстрее чем за ' + hm(gDrug.tmin));
+    if(gDrug.tmax && t > gDrug.tmax) html += warn('По инструкции — в течение ' + hm(gDrug.tmin) + '–' + hm(gDrug.tmax));
+    out.innerHTML = html;
   }
   setDrug(0);
 
