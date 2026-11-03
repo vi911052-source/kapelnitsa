@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Калькулятор капельниц</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg: var(--tg-theme-bg-color, #f4f6f9);
+    --card: var(--tg-theme-secondary-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #1a1d23);
+    --hint: var(--tg-theme-hint-color, #8a919c);
+    --accent: var(--tg-theme-button-color, #2f80ed);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --line: rgba(127,127,127,.18);
+    --warn: #e5534b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-tg]){
+      --bg:#14171c; --card:#1e2229; --text:#eef0f3; --hint:#8d95a1; --accent:#4c93f5;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:520px;margin:0 auto;padding:16px 16px 40px}
+  h1{font-size:20px;margin:4px 0 14px;font-weight:700}
+  .tabs{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:14px;margin-bottom:14px}
+  .tab{flex:1;border:0;background:none;color:var(--hint);font:inherit;font-size:14px;font-weight:600;
+    padding:10px 4px;border-radius:10px;cursor:pointer}
+  .tab.on{background:var(--accent);color:var(--accent-text)}
+  .card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px}
+  label{display:block;font-size:13px;color:var(--hint);margin:0 0 6px;font-weight:600}
+  .field{margin-bottom:14px}
+  .field:last-child{margin-bottom:0}
+  .row{display:flex;gap:8px}
+  .row > *{flex:1;min-width:0}
+  input,select{width:100%;font:inherit;font-size:18px;color:var(--text);background:var(--bg);
+    border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;outline:none;-webkit-appearance:none;appearance:none}
+  select{font-size:16px;background-image:linear-gradient(45deg,transparent 50%,var(--hint) 50%),linear-gradient(135deg,var(--hint) 50%,transparent 50%);
+    background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+  input:focus,select:focus{border-color:var(--accent)}
+  .unit{position:relative}
+  .unit span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--hint);font-size:14px;pointer-events:none}
+  .unit input{padding-right:44px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1.5px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:14px;
+    padding:8px 12px;border-radius:20px;cursor:pointer}
+  .chip.on{border-color:var(--accent);background:var(--accent);color:var(--accent-text)}
+  .chip small{opacity:.75}
+  #customK{margin-top:8px;display:none}
+  .result{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;border:2px solid var(--accent)}
+  .big{font-size:40px;font-weight:800;line-height:1.1}
+  .big small{font-size:16px;font-weight:600;color:var(--hint)}
+  .sub{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .sub div{background:var(--bg);border-radius:12px;padding:10px}
+  .sub b{display:block;font-size:18px}
+  .sub span{font-size:12px;color:var(--hint)}
+  .empty{color:var(--hint);font-size:15px}
+  .err{color:var(--warn);font-size:15px;font-weight:600}
+  .note{font-size:12px;color:var(--hint);text-align:center;margin-top:16px;line-height:1.5}
+  .pane{display:none}.pane.on{display:block}
+  .formula{font-size:12px;color:var(--hint);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💧 Калькулятор капельниц</h1>
+
+  <div class="tabs">
+    <button class="tab on" data-p="rate">Капли/мин</button>
+    <button class="tab" data-p="time">Время</button>
+    <button class="tab" data-p="dose">По дозе</button>
+  </div>
+
+  <!-- Капельная система — общая для всех режимов -->
+  <div class="card">
+    <label>Капельная система (капель в 1 мл)</label>
+    <div class="chips" id="kChips">
+      <button class="chip on" data-k="20">20 <small>стандарт</small></button>
+      <button class="chip" data-k="15">15</button>
+      <button class="chip" data-k="60">60 <small>микро</small></button>
+      <button class="chip" data-k="custom">другая</button>
+    </div>
+    <div class="unit" id="customK"><input id="kVal" inputmode="decimal" placeholder="капель в 1 мл"><span>кап/мл</span></div>
+  </div>
+
+  <!-- Режим 1 -->
+  <div class="pane on" id="p-rate">
+    <div class="card">
+      <div class="field">
+        <label>Объём раствора</label>
+        <div class="unit"><input id="r-v" inputmode="decimal" placeholder="например, 400"><span>мл</span></div>
+      </div>
+      <div class="field">
+        <label>Время введения</label>
+        <div class="row">
+          <div class="unit"><input id="r-h" inputmode="decimal" placeholder="0"><span>ч</span></div>
+          <div class="unit"><input id="r-m" inputmode="decimal" placeholder="0"><span>мин</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="result" id="r-out"></div>
+  </div>
+
+  <!-- Режим 2 -->
+  <div class="pane" id="p-time">
+    <div class="card">
+      <div class="field">
+        <label>Объём раствора</label>
+        <div class="unit"><input id="t-v" inputmode="decimal" placeholder="например, 500"><span>мл</span></div>
+      </div>
+      <div class="field">
+        <label>Скорость</label>
+        <div class="unit"><input id="t-d" inputmode="decimal" placeholder="например, 40"><span>кап/мин</span></div>
+      </div>
+    </div>
+    <div class="result" id="t-out"></div>
+  </div>
+
+  <!-- Режим 3 -->
+  <div class="pane" id="p-dose">
+    <div class="card">
+      <div class="field">
+        <label>Препарата во флаконе / шприце</label>
+        <div class="row">
+          <input id="d-amt" inputmode="decimal" placeholder="количество">
+          <select id="d-amtU"><option>мг</option><option>мкг</option><option>ЕД</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Разведён в общем объёме</label>
+        <div class="unit"><input id="d-vol" inputmode="decimal" placeholder="например, 50"><span>мл</span></div>
+      </div>
+      <div class="field">
+        <label>Назначенная доза</label>
+        <div class="row">
+          <input id="d-dose" inputmode="decimal" placeholder="доза">
+          <select id="d-doseU">
+            <option value="мг|ч|0">мг/ч</option>
+            <option value="мг|мин|0">мг/мин</option>
+            <option value="мкг|мин|0">мкг/мин</option>
+            <option value="мкг|ч|0">мкг/ч</option>
+            <option value="мкг|мин|1">мкг/кг/мин</option>
+            <option value="мг|ч|1">мг/кг/ч</option>
+            <option value="мг|мин|1">мг/кг/мин</option>
+            <option value="ЕД|ч|0">ЕД/ч</option>
+            <option value="ЕД|ч|1">ЕД/кг/ч</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="d-wF" style="display:none">
+        <label>Вес пациента</label>
+        <div class="unit"><input id="d-w" inputmode="decimal" placeholder="например, 70"><span>кг</span></div>
+      </div>
+    </div>
+    <div class="result" id="d-out"></div>
+  </div>
+
+  <div class="note">Калькулятор только считает. Назначение и дозу определяет врач —<br>перед введением сверяйте результат.</div>
+</div>
+
+<script>
+(function(){
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if (tg && tg.initData !== undefined) {
+    try { tg.ready(); tg.expand(); document.documentElement.setAttribute('data-tg',''); } catch(e){}
+  }
+
+  function $(id){ return document.getElementById(id); }
+  function num(id){
+    var s = ($(id).value || '').replace(',', '.').trim();
+    if (s === '') return NaN;
+    var n = parseFloat(s);
+    return isFinite(n) ? n : NaN;
+  }
+  function fmt(n, d){
+    if (!isFinite(n)) return '—';
+    var r = Number(n.toFixed(d === undefined ? 1 : d));
+    return r.toLocaleString('ru-RU', {maximumFractionDigits: d === undefined ? 1 : d});
+  }
+  function hm(min){
+    var total = Math.round(min);
+    var h = Math.floor(total/60), m = total % 60;
+    if (h === 0) return m + ' мин';
+    return h + ' ч' + (m ? ' ' + m + ' мин' : '');
+  }
+
+  // ---- капельная система
+  var k = 20;
+  function store(key,val){ try{ localStorage.setItem(key,val); }catch(e){} }
+  function load(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+
+  function setK(val){
+    document.querySelectorAll('#kChips .chip').forEach(function(c){ c.classList.toggle('on', c.dataset.k === val); });
+    $('customK').style.display = val === 'custom' ? 'block' : 'none';
+    k = val === 'custom' ? num('kVal') : parseFloat(val);
+    store('kSel', val);
+    calc();
+  }
+  document.querySelectorAll('#kChips .chip').forEach(function(c){
+    c.addEventListener('click', function(){ setK(c.dataset.k); });
+  });
+  $('kVal').addEventListener('input', function(){ k = num('kVal'); store('kCustom', $('kVal').value); calc(); });
+
+  // ---- вкладки
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('on', x === t); });
+      document.querySelectorAll('.pane').forEach(function(p){ p.classList.toggle('on', p.id === 'p-' + t.dataset.p); });
+      if (tg && tg.HapticFeedback) try{ tg.HapticFeedback.selectionChanged(); }catch(e){}
+    });
+  });
+
+  var EMPTY = '<div class="empty">Введите данные — результат появится здесь</div>';
+  function kBad(){ return !(k > 0); }
+
+  function ratePanel(dpm, mlh){
+    return '<div class="big">' + fmt(Math.round(dpm),0) + ' <small>кап/мин</small></div>' +
+      '<div class="sub">' +
+        '<div><b>' + fmt(dpm/4, 1) + '</b><span>капель за 15 сек</span></div>' +
+        '<div><b>' + fmt(60/dpm, 1) + ' сек</b><span>между каплями</span></div>' +
+        '<div><b>' + fmt(mlh, 1) + '</b><span>мл/ч (для инфузомата)</span></div>' +
+        '<div><b>' + fmt(dpm, 1) + '</b><span>кап/мин точно</span></div>' +
+      '</div>';
+  }
+
+  function calcRate(){
+    var v = num('r-v'), h = num('r-h'), m = num('r-m');
+    var t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+    var out = $('r-out');
+    if (!(v > 0) || !(t > 0)) { out.innerHTML = EMPTY; return; }
+    if (kBad()) { out.innerHTML = '<div class="err">Укажите капельную систему</div>'; return; }
+    var dpm = v * k / t;
+    out.innerHTML = ratePanel(dpm, v / t * 60) +
+      '<div class="formula">' + fmt(v,1) + ' мл × ' + fmt(k,0) + ' кап/мл ÷ ' + fmt(t,0) + ' мин</div>';
+  }
+
+  function calcTime(){
+    var v = num('t-v'), d = num('t-d');
+    var out = $('t-out');
+    if (!(v > 0) || !(d > 0)) { out.innerHTML = EMPTY; return; }
+    if (kBad()) { out.innerHTML = '<div class="err">Укажите капельную систему</div>'; return; }
+    var min = v * k / d;
+    var end = new Date(Date.now() + min*60000);
+    var endStr = ('0'+end.getHours()).slice(-2) + ':' + ('0'+end.getMinutes()).slice(-2);
+    out.innerHTML = '<div class="big">' + hm(min) + '</div>' +
+      '<div class="sub">' +
+        '<div><b>' + endStr + '</b><span>закончится, если начать сейчас</span></div>' +
+        '<div><b>' + fmt(d / k * 60, 1) + '</b><span>мл/ч</span></div>' +
+      '</div>';
+  }
+
+  function calcDose(){
+    var parts = $('d-doseU').value.split('|');
+    var dU = parts[0], per = parts[1], perKg = parts[2] === '1';
+    $('d-wF').style.display = perKg ? 'block' : 'none';
+
+    var amt = num('d-amt'), aU = $('d-amtU').value, vol = num('d-vol'), dose = num('d-dose'), w = num('d-w');
+    var out = $('d-out');
+    if (!(amt > 0) || !(vol > 0) || !(dose > 0) || (perKg && !(w > 0))) { out.innerHTML = EMPTY; return; }
+    if ((aU === 'ЕД') !== (dU === 'ЕД')) {
+      out.innerHTML = '<div class="err">Единицы не совпадают: препарат в ' + aU + ', а доза в ' + dU + '</div>'; return;
+    }
+    // всё приводим к мг (или ЕД)
+    function toBase(x,u){ return u === 'мкг' ? x/1000 : x; }
+    var conc = toBase(amt, aU) / vol;                 // мг (ЕД) в 1 мл
+    var perHour = toBase(dose, dU) * (perKg ? w : 1) * (per === 'мин' ? 60 : 1); // мг (ЕД) в час
+    var mlh = perHour / conc;
+    var baseU = aU === 'ЕД' ? 'ЕД' : 'мг';
+    var html = '<div class="big">' + fmt(mlh, 2) + ' <small>мл/ч</small></div>' +
+      '<div class="sub">' +
+        '<div><b>' + fmt(conc < 0.1 && baseU==='мг' ? conc*1000 : conc, 3) + '</b><span>' + (conc < 0.1 && baseU==='мг' ? 'мкг' : baseU) + ' в 1 мл</span></div>' +
+        '<div><b>' + fmt(perHour, 3) + '</b><span>' + baseU + ' в час</span></div>';
+    if (!kBad()) {
+      var dpm = mlh * k / 60;
+      html += '<div><b>' + fmt(Math.round(dpm),0) + '</b><span>кап/мин (система ' + fmt(k,0) + ')</span></div>' +
+              '<div><b>' + hm(vol / mlh * 60) + '</b><span>хватит всего объёма</span></div>';
+    }
+    html += '</div>';
+    out.innerHTML = html;
+  }
+
+  function calc(){ calcRate(); calcTime(); calcDose(); }
+
+  document.querySelectorAll('input:not(#kVal), select').forEach(function(el){
+    el.addEventListener('input', calc);
+    el.addEventListener('change', calc);
+  });
+
+  // восстановить выбор системы
+  var saved = load('kSel'), savedC = load('kCustom');
+  if (savedC) $('kVal').value = savedC;
+  setK(saved || '20');
+})();
+</script>
+</body>
+</html>
