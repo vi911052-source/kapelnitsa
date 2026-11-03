@@ -27,8 +27,8 @@
   .wrap{max-width:520px;margin:0 auto;padding:16px 16px 40px}
   h1{font-size:20px;margin:4px 0 14px;font-weight:700}
   .tabs{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:14px;margin-bottom:14px}
-  .tab{flex:1;border:0;background:none;color:var(--hint);font:inherit;font-size:14px;font-weight:600;
-    padding:10px 4px;border-radius:10px;cursor:pointer}
+  .tab{flex:1;min-width:0;border:0;background:none;color:var(--hint);font:inherit;font-size:13px;font-weight:600;
+    padding:10px 2px;border-radius:10px;cursor:pointer}
   .tab.on{background:var(--accent);color:var(--accent-text)}
   .card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px}
   label{display:block;font-size:13px;color:var(--hint);margin:0 0 6px;font-weight:600}
@@ -72,6 +72,7 @@
     <button class="tab on" data-p="rate">Капли/мин</button>
     <button class="tab" data-p="time">Время</button>
     <button class="tab" data-p="dose">По дозе</button>
+    <button class="tab" data-p="drug">Препараты</button>
   </div>
 
   <!-- Капельная система — общая для всех режимов -->
@@ -158,6 +159,50 @@
     <div class="result" id="d-out"></div>
   </div>
 
+
+  <!-- Режим 4: препараты -->
+  <div class="pane" id="p-drug">
+    <div class="card">
+      <div class="field">
+        <label>Препарат</label>
+        <select id="g-drug"></select>
+      </div>
+      <div class="field">
+        <label>Форма выпуска</label>
+        <div class="chips" id="g-forms"></div>
+      </div>
+      <div class="field">
+        <label>В 1 ампуле / флаконе <span style="font-weight:400">(сверьте с упаковкой)</span></label>
+        <div class="row">
+          <div class="unit"><input id="g-ad" inputmode="decimal"><span id="g-au">мг</span></div>
+          <div class="unit"><input id="g-aml" inputmode="decimal"><span>мл</span></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Сколько ампул</label>
+        <div class="unit"><input id="g-n" inputmode="decimal" value="1"><span>шт</span></div>
+      </div>
+      <div class="field">
+        <label>Растворитель (NaCl 0,9% и т.п.)</label>
+        <div class="chips" id="g-sol">
+          <button class="chip" data-v="0">без</button>
+          <button class="chip" data-v="100">100</button>
+          <button class="chip on" data-v="200">200</button>
+          <button class="chip" data-v="250">250</button>
+          <button class="chip" data-v="400">400</button>
+        </div>
+        <div class="unit" style="margin-top:8px"><input id="g-sv" inputmode="decimal" value="200"><span>мл</span></div>
+      </div>
+      <div class="field">
+        <label>Время введения (по назначению)</label>
+        <div class="row">
+          <div class="unit"><input id="g-h" inputmode="decimal" placeholder="0"><span>ч</span></div>
+          <div class="unit"><input id="g-m" inputmode="decimal" placeholder="0"><span>мин</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="result" id="g-out"></div>
+  </div>
   <div class="note">Калькулятор только считает. Назначение и дозу определяет врач —<br>перед введением сверяйте результат.</div>
 </div>
 
@@ -282,7 +327,61 @@
     out.innerHTML = html;
   }
 
-  function calc(){ calcRate(); calcTime(); calcDose(); }
+
+  // ---- препараты
+  var DRUGS = [
+    {n:'Мексидол', f:[{t:'50 мг/мл, 2 мл',d:100,u:'мг',ml:2},{t:'50 мг/мл, 5 мл',d:250,u:'мг',ml:5}]},
+    {n:'Гептрал', f:[{t:'фл. 400 мг + 5 мл растворителя',d:400,u:'мг',ml:5}]},
+    {n:'Аспаркам', f:[{t:'амп. 10 мл',d:10,u:'мл',ml:10},{t:'амп. 5 мл',d:5,u:'мл',ml:5}]},
+    {n:'L-лизина эсцинат', f:[{t:'1 мг/мл, 5 мл',d:5,u:'мг',ml:5}]},
+    {n:'Цераксон', f:[{t:'500 мг / 4 мл',d:500,u:'мг',ml:4},{t:'1000 мг / 4 мл',d:1000,u:'мг',ml:4}]},
+    {n:'Дексаметазон', f:[{t:'4 мг / 1 мл',d:4,u:'мг',ml:1},{t:'8 мг / 2 мл',d:8,u:'мг',ml:2}]},
+    {n:'Тиоктовая кислота (Берлитион)', f:[{t:'300 ЕД (300 мг) / 12 мл',d:300,u:'мг',ml:12},{t:'600 ЕД (600 мг) / 24 мл',d:600,u:'мг',ml:24}]},
+    {n:'Магния сульфат 25%', f:[{t:'амп. 5 мл (1250 мг)',d:1250,u:'мг',ml:5},{t:'амп. 10 мл (2500 мг)',d:2500,u:'мг',ml:10}]},
+    {n:'Эуфиллин 2,4%', f:[{t:'амп. 5 мл (120 мг)',d:120,u:'мг',ml:5},{t:'амп. 10 мл (240 мг)',d:240,u:'мг',ml:10}]},
+    {n:'Вессел Дуэ Ф', f:[{t:'600 ЛЕ / 2 мл',d:600,u:'ЛЕ',ml:2}]}
+  ];
+  var gUnit = 'мг';
+  DRUGS.forEach(function(d,i){ var o=document.createElement('option'); o.value=i; o.textContent=d.n; $('g-drug').appendChild(o); });
+  function setForm(f, btn){
+    document.querySelectorAll('#g-forms .chip').forEach(function(c){ c.classList.toggle('on', c===btn); });
+    $('g-ad').value = f.d; $('g-aml').value = f.ml; gUnit = f.u; $('g-au').textContent = f.u;
+    calcDrug();
+  }
+  function setDrug(i){
+    var box = $('g-forms'); box.innerHTML = '';
+    DRUGS[i].f.forEach(function(f,j){
+      var b=document.createElement('button'); b.className='chip'; b.textContent=f.t;
+      b.addEventListener('click', function(){ setForm(f,b); });
+      box.appendChild(b); if(j===0) setForm(f,b);
+    });
+  }
+  $('g-drug').addEventListener('change', function(){ setDrug(+this.value); });
+  document.querySelectorAll('#g-sol .chip').forEach(function(c){
+    c.addEventListener('click', function(){
+      document.querySelectorAll('#g-sol .chip').forEach(function(x){ x.classList.toggle('on', x===c); });
+      $('g-sv').value = c.dataset.v; calcDrug();
+    });
+  });
+  function calcDrug(){
+    var out=$('g-out');
+    var ad=num('g-ad'), aml=num('g-aml'), n=num('g-n'), sv=num('g-sv'), h=num('g-h'), m=num('g-m');
+    var t=(isNaN(h)?0:h)*60+(isNaN(m)?0:m);
+    if(!(n>0) || !(aml>=0) || isNaN(aml)){ out.innerHTML=EMPTY; return; }
+    var total = n*aml + (sv>0?sv:0);
+    var dose = ad>0 ? ad*n : NaN;
+    var name = $('g-drug').options[$('g-drug').selectedIndex].text;
+    var head = '<div class="formula" style="margin:0 0 8px">' + name + ': ' + fmt(n,1) + ' амп.' + (isFinite(dose)&&gUnit!=='мл' ? ' = <b>' + fmt(dose,1) + ' ' + gUnit + '</b>' : '') + ' в ' + fmt(total,1) + ' мл</div>';
+    if(!(t>0)){ out.innerHTML = head + '<div class="empty">Укажите время введения</div>'; return; }
+    if(!(total>0)){ out.innerHTML = EMPTY; return; }
+    if(kBad()){ out.innerHTML = head + '<div class="err">Укажите капельную систему</div>'; return; }
+    var dpm = total*k/t;
+    out.innerHTML = head + ratePanel(dpm, total/t*60) +
+      '<div class="formula">' + fmt(total,1) + ' мл × ' + fmt(k,0) + ' кап/мл ÷ ' + fmt(t,0) + ' мин</div>';
+  }
+  setDrug(0);
+
+  function calc(){ calcRate(); calcTime(); calcDose(); calcDrug(); }
 
   document.querySelectorAll('input:not(#kVal), select').forEach(function(el){
     el.addEventListener('input', calc);
